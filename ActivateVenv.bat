@@ -1,0 +1,1 @@
+H:\PrivateCodePlates\LLWokerPlateform\Utils\venv\Scripts\activate
