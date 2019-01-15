@@ -21,7 +21,7 @@ from redis import StrictRedis
 
 ProRootDir = 'H:\\PrivateCodePlates\\LLWokerPlateform\\' \
                 if platform.system() == 'Windows' else '/Users/wangjiawei/justpython/'
-sys.path.append(ProRootDir + "Utils")
+sys.path.append(ProRootDir + "Utils\\filetool\\")
 import CreateFile
 import fontface
 # sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='gb18030')
@@ -69,15 +69,6 @@ def cmp_font_glyph(a, b):
         pass
     return False
 
-
-# 获取本地字体库数据
-def get_base_fonts():
-    pathname = CreateFile.createFile('msyh.ttf', 'DataHub/cv')
-    baseFonts = TTFont(pathname)
-    base_uni_list = baseFonts.getGlyphOrder()[1:]
-    return [baseFonts, base_uni_list]
-
-
 # 在basefonts中寻找匹配字体
 def search_match_font(i, curfont, baseFonts, base_uni_list, tmp):
     for j in base_uni_list:
@@ -107,6 +98,7 @@ def create_new_obj(baseGlyph):
 # 生成字体文件
 def create_ttf_xml(html):
     tmp = {}
+    tmp2 = {}
     fontstr = html.xpath('//style[1]/text()')[0]
     pattern = re.compile('^.*?base64,(.*?)\).*?format', re.S)
     result = re.match(pattern, fontstr)
@@ -116,7 +108,7 @@ def create_ttf_xml(html):
         raise RuntimeError('字体文件不存在！')
     fonts = TTFont(dic['ttf'])
     uni_list = fonts.getGlyphOrder()[1:]
-    redis = StrictRedis(host='localhost', port=6379, db=1)
+    redis = StrictRedis(host='localhost', port=6379, db=1) # db=1 因为默认redis中有0-15共16个数据库
 
     for i in uni_list:
         onlineGlyph = fonts['glyf'][i]
@@ -124,6 +116,7 @@ def create_ttf_xml(html):
         if newobjstr == '':
             continue
         hashstr = hashlib.md5(newobjstr.encode("utf-8")).hexdigest()
+        tmp2[i.lower()] = hashstr
         try:
             tmp[i.lower()] = redis.get(hashstr).decode('utf-8')
         except Exception as ex:
@@ -131,7 +124,8 @@ def create_ttf_xml(html):
             tmp[i.lower()] = "unknown code"
 
     # if os.path.exists(dic['ttf']):
-    #     os.remove(dic['ttf'])
+    #     os.remove(dic['ttf'])    
+    # print(tmp2)
     return tmp
 
 
