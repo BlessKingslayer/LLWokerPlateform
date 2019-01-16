@@ -116,7 +116,7 @@ def create_ttf_xml(html):
         if newobjstr == '':
             continue
         hashstr = hashlib.md5(newobjstr.encode("utf-8")).hexdigest()
-        tmp2[i.lower()] = hashstr
+        # tmp2[i.lower()] = hashstr
         try:
             tmp[i.lower()] = redis.get(hashstr).decode('utf-8')
         except Exception as ex:
