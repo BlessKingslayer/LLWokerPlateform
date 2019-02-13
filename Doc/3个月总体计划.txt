@@ -1,0 +1,17 @@
+****爬虫线为主要目标****
+
+----参考资源----
+1. https://www.zhihu.com/question/61103114  爬虫学到怎样能找到工作
+2. 博客: 
+   1) https://www.urlteam.org/category/web_crawlers/
+   2) 资源汇总: https://www.urlteam.org/2017/03/python%E8%B5%84%E6%BA%90%E5%85%A8%E6%B1%87%E6%80%BB-%E4%B8%AD%E6%96%87%E7%89%88/
+
+   3) python测试 虫师 https://www.cnblogs.com/fnng/
+   4) 基础 这是根基 http://www.liaoxuefeng.com/wiki/001374738125095c955c1e6d8bb493182103fac9270762a000/
+   5) 一天2道题 http://www.pythontip.com/
+        https://leetcode-cn.com/  这里做题更好
+
+   6) csdn：https://www.cnblogs.com/nkwy2012/p/7875897.html
+   7）知乎python大佬 https://www.jianshu.com/p/30b7760ce130
+
+   8) 菜鸟学python2018上半年汇总 https://zhuanlan.zhihu.com/p/38429627
