@@ -15,3 +15,6 @@
    7）知乎python大佬 https://www.jianshu.com/p/30b7760ce130
 
    8) 菜鸟学python2018上半年汇总 https://zhuanlan.zhihu.com/p/38429627
+
+3. 优质个人blog
+   1) https://woodenrobot.me/
