@@ -1,7 +1,7 @@
 import os, time
 import platform
 
-ProRootDir = 'H:\\PrivateCodePlates\\LLWokerPlateform\\' \
+ProRootDir = 'I:\\PrivateProjects\\LLWokerPlateform\\' \
                 if platform.system() == 'Windows' else '/Users/wangjiawei/justpython/'
 # 创建日志文件
 def createLog():
