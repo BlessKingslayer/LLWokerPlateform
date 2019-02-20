@@ -46,3 +46,14 @@ def buildWordDict(text):
 
 text = str(urlopen('http://pythonscraping.com/files/inaugurationSpeech.txt').read(), 'utf-8')
 wordDict = buildWordDict(text)
+# print(wordDict)
+
+length = 100  # 定义马尔可夫链的链长
+chain = ""
+currentWord = "I"
+for i in range(0, length):
+    chain += currentWord + " "
+    currentWord = retrieveRandomWord(wordDict[currentWord])
+
+print(chain)
+
