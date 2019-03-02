@@ -77,7 +77,7 @@ def add_remove_groups(conn, article_id, to_add=[], to_remove=[]):
     for group in to_add:
         conn.sadd('group:' + group, article)
     for group in to_remove:
-        conn.sadd('group:' + group, article)
+        conn.srem('group:' + group, article)
 
 
 # 获取分组内的文章 按照指定属性排序
