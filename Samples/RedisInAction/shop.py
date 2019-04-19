@@ -14,6 +14,20 @@ QUIT = False
 LIMIT = 10000000
 
 
+def check_token(conn, token):
+    return conn.hget('login:', token)
+
+
+def update_token(conn, token, user, item=None):
+    timestamp = time.time()
+    conn.hget('login:', token, user)
+    conn.zadd('recent:', token, timestamp)
+    if item:
+        conn.zadd('viewed:' + token, item, timestamp)
+        conn.zremrangebyrank('viewed:' + token, 0, -26) # 保留最近25条浏览记录
+        conn.zincrby('viewed:', item, -1)   # 每个浏览的商品都有一个初始值-1， 每浏览一次-1, 浏览越多分值越少
+
+
 def clean_full_sessions(conn):
     while not QUIT:
         size = conn.zcard('recent:')
@@ -85,4 +99,8 @@ def cache_rows(conn):
         conn.set('inv:' + row_id, json.dumps(row.to_dict()))
 
 
-
+def rescale_viewed(conn):
+    while not QUIT:
+        conn.zremrangebyrank('viewed:', 0, -20001) # 删除排名20000之外的商品缓存
+        conn.zinterstore('viewed:', {'viewed:': .5}) # 将有序集合中的分值乘以指定的数字
+        time.sleep(300) # 5分钟

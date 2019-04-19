@@ -1,64 +1,245 @@
-import requests
-import time
+# -*- coding: utf-8 -*-
+import hashlib
+import threading
+from collections import deque
+
+from selenium import webdriver
 import re
-from bs4 import BeautifulSoup
+from lxml import etree
+import time
+from pybloomfilter import BloomFilter
 
-url = 'https://weibo.com/p/1005051641417650/follow?relate=fans&page=1'
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
-payload = ""
-headers = {
-    'Accept':
-    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-    'Accept-Encoding':
-    "gzip, deflate, br",
-    'Accept-Language':
-    "zh-CN,zh;q=0.9,ko-KR;q=0.8,ko;q=0.7,en;q=0.6",
-    'Cache-Control':
-    "max-age=0",
-    'Connection':
-    "keep-alive",
-    'Cookie':
-    "SINAGLOBAL=7768639631428.897.1521710638641; UOR=,,www.baidu.com; UM_distinctid=167c626b2fa1ba-07aa6bae011c6a-3a3a5f0c-100200-167c626b2fd690; Ugrow-G0=968b70b7bcdc28ac97c8130dd353b55e; login_sid_t=5e8ae5f18dcd1be987598098ce6457f8; cross_origin_proto=SSL; YF-V5-G0=bcfc495b47c1efc5be5998b37da5d0e4; WBStorage=f3685954b8436f62|undefined; wb_view_log=1440*9001; _s_tentry=passport.weibo.com; Apache=1556645058473.9377.1551235074901; ULV=1551235074912:5:1:1:1556645058473.9377.1551235074901:1548912763037; YF-Page-G0=70942dbd611eb265972add7bc1c85888; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WFsJTb.3eX26AGFm2EwRiFB5JpX5K2hUgL.Fo2c1KeRSo2ESoM2dJLoI0qLxKqL1h.L1KeLxKnL1hBLBonLxKBLBonL12BLxK-L1h-L1h-LxKnL1heL1KqLxK-LB-BL1K5t; SSOLoginState=1551235092; ALF=1582771114; SCF=AiSUwJMc4oTJJ3FxlrjGwayfbG3bjGA4UwNyTj5AF0T0YNoo6bfMXQwOWVBsqNUnh_6inTRIlDWpb3_cireS56g.; SUB=_2A25xcYh-DeRhGedI4lEZ9i_OzTuIHXVSBv62rDV8PUNbmtAKLWfykW9NVp1dlxiP1byxPZhmIXPVCDx7HPuWtJ9s; SUHB=0TPEbyVAMgqwzk; un=wangjjwangww@sina.com; wb_view_log_1693861267=1440*9001; webim_unReadCount=%7B%22time%22%3A1551235465196%2C%22dm_pub_total%22%3A31%2C%22chat_group_pc%22%3A69%2C%22allcountNum%22%3A100%2C%22msgbox%22%3A0%7D",
-    'Host':
-    "weibo.com",
-    'Referer':
-    "https://s.weibo.com/weibo/%E7%99%BD%E9%B8%A6?topnav=1&wvr=6&topsug=1",
-    'Upgrade-Insecure-Requests':
-    "1",
-    'User-Agent':
-    "Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Safari/537.36"
-}
+user_agent = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_4) " +
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/29.0.1547.57 Safari/537.36"
+)
 
+# 进入浏览器设置
+options = webdriver.ChromeOptions()
+# 设置中文
+options.add_argument('lang=zh_CN.UTF-8')
 
-def MakeParams(page):
-    urlbase = 'https://weibo.com/p/1005051641417650/follow'
-    querystring = {
-        'pids': 'Pl_Official_HisRelation__59',
-        'relate': 'fans',
-        'page': page,
-        'ajaxpagelet': 1,
-        'ajaxpagelet_v6': 1,
-        '__ref': '/p/1005051641417650/follow?relate=fans&page={0}#Pl_Official_HisRelation__59'.format(page - 1),
-        '_t': 'FM_' + str(int(time.time() * 1000))
-    }
-    return querystring
+# ---------- Important ----------------
+# 设置为 headless 模式，调试的时候可以去掉
+# -------------------------------------
+#options.add_argument("--headless")
+
+# 更换头部
+# options.add_argument('user-agent="Mozilla/5.0 (iPod; U; CPU iPhone OS 2_1 like Mac OS X; ja-jp) AppleWebKit/525.18.1 (KHTML, like Gecko) Version/3.1.1 Mobile/5F137 Safari/525.20"')
+feeds_crawler = webdriver.Chrome(chrome_options=options)
+
+feeds_crawler.set_window_size(1920, 1200)  # optional
 
 
-def GetData():
-    global url
-    querystring = {}
-    for i in range(1, 2):
-        if i > 1:
-            querystring = MakeParams(i)
-            url = 'https://weibo.com/p/1005051641417650/follow'
-        response = requests.request(
-            "GET", url, data=payload, headers=headers, params=querystring)
-        html = response.content
-        # bsObj = BeautifulSoup(html, 'lxml')
-        # lock = bsObj.find_all(name='dd', class_='mod_info', recursive=True)
-        with open("baidu2.html","w", encoding='utf-8') as f:
-            f.write(response.text)
+user_crawler = webdriver.Chrome(chrome_options=options)
+user_crawler.set_window_size(1920, 1200)  # optional
 
+domain = 'weibo.com'
+url_home = "https://passport.weibo.cn/signin/login"
 
+download_bf = BloomFilter(1024*1024*16, 0.01)
+cur_queue = deque()
 
-GetData()
+# feeds_crawler.find_element_by_class_name('WB_detail')
+# time = feeds_crawler.find_elements_by_xpath('//div[@class="WB_detail"]/div[@class="WB_from S_txt2"]/a[0]').text
+
+seed_user = 'http://weibo.com/yaochen'
+
+min_mblogs_allowed = 100
+max_follow_fans_ratio_allowed = 3
+
+def full_url(url):
+    if url.startswith('//'):
+        return 'https:' + url
+    elif url.startswith('/'):
+        return 'https://' + domain + url
+    return url
+
+def extract_user(users):
+    print('extract user')
+    for i in range(0,20):
+        for user_element in user_crawler.find_elements_by_xpath('//*[contains(@class, "follow_item")]'):
+            tried = 0
+            while tried < 3:
+                try:
+                    user = {}
+                    user['follows'] = re.findall('(\d+)', user_element.find_element_by_xpath('.//div[@class="info_connect"]/span').text)[0]
+                    user['follows_link'] = user_element.find_element_by_xpath('.//div[@class="info_connect"]/span//a').get_attribute('href')
+                    user['fans'] = re.findall('(\d+)', user_element.find_elements_by_xpath('.//div[@class="info_connect"]/span')[1].text)[0]
+                    user['fans_link'] = user_element.find_elements_by_xpath('.//div[@class="info_connect"]/span//a')[1].get_attribute('href')
+                    user['mblogs'] = re.findall('(\d+)', user_element.find_elements_by_xpath('.//div[@class="info_connect"]/span')[2].text)[0]
+                    user_link = user_element.find_element_by_xpath('.//div[contains(@class,"info_name")]/a')
+                    user['link'] = re.findall('(.+)\?', user_link.get_attribute('href'))[0]
+                    if user['link'][:4] != 'http':
+                        user['link'] = domain + user['link']
+                    user['name'] = user_link.text
+                    user['icon'] = re.findall('/([^/]+)$', user_element.find_element_by_xpath('.//dt[@class="mod_pic"]/a/img').get_attribute('src'))[0]
+                    # name = user_element.find_element_by_xpath('.//a[@class="S_txt1"]')
+
+                    print('--------------------')
+                    print(user['name'] + ' follows: ' + user['follows'] + ' blogs:' + user['mblogs'])
+                    print(user['link'])
+
+                    # 如果微博数量少于阈值或者关注数量与粉丝数量比值超过阈值，则跳过
+                    if int(user['mblogs']) < min_mblogs_allowed or int(user['follows'])/int(user['fans']) > max_follow_fans_ratio_allowed:
+                        break
+
+                    enqueueUrl(user['link'])
+                    users.append(user)
+                    break
+                except Exception:
+                    time.sleep(1)
+                    tried += 1
+        if go_next_page(user_crawler) is False:
+            return users
+
+    return users
+
+def extract_feed(feeds):
+    for i in range(0,20):
+        scroll_to_bottom()
+        for element in feeds_crawler.find_elements_by_class_name('WB_detail'):
+            tried = 0
+            while tried < 3:
+                try:
+                    feed = {}
+                    feed['time'] = element.find_element_by_xpath('.//div[@class="WB_from S_txt2"]').text
+                    feed['content'] = element.find_element_by_class_name('WB_text').text
+                    feed['image_names'] = []
+                    for image in element.find_elements_by_xpath('.//li[contains(@class,"WB_pic")]/img'):
+                        feed['image_names'].append(re.findall('/([^/]+)$', image.get_attribute('src')))
+                    feeds.append(feed)
+                    print('--------------------')
+                    print(feed['time'])
+                    print(feed['content'])
+                    break
+                except Exception:
+                    tried += 1
+                    time.sleep(1)
+        if go_next_page(feeds_crawler) is False:
+            return feeds
+
+def scroll_to_bottom():
+    # 最多尝试 20 次滚屏
+    print( 'scroll down')
+    for i in range(0,50):
+        # print('scrolling for the %d time' % (i))
+        feeds_crawler.execute_script('window.scrollTo(0, document.body.scrollHeight)')
+        html = feeds_crawler.page_source
+        tr = etree.HTML(html)
+        next_page_url = tr.xpath('//a[contains(@class,"page next")]')
+        if len(next_page_url) > 0:
+            return next_page_url[0].get('href')
+        if len(re.findall('点击重新载入', html)) > 0:
+            print('scrolling failed, reload it')
+            feeds_crawler.find_element_by_link_text('点击重新载入').click()
+        time.sleep(1)
+
+def go_next_page(cur_driver):
+    try:
+        next_page = cur_driver.find_element_by_xpath('//a[contains(@class, "page next")]').get_attribute('href')
+        print('next page is ' + next_page)
+        cur_driver.get(full_url(next_page))
+        time.sleep(3)
+        return True
+    except Exception:
+        print('next page is not found')
+        return False
+
+def fetch_user(user_link):
+    print('downloading ' + user_link)
+    feeds_crawler.get(user_link)
+    time.sleep(5)
+    
+    # 提取用户姓名
+    account_name = get_element_by_xpath(feeds_crawler, '//h1')[0].text
+
+    photo = get_element_by_xpath(feeds_crawler, '//p[@class="photo_wrap"]/img')[0].get('src')
+
+    account_photo = re.findall('/([^/]+)$', photo)
+
+    # 提取他的关注主页
+    follows_link = get_element_by_xpath(feeds_crawler, '//a[@class="t_link S_txt1"]')[0].get('href')
+
+    print('account: ' + account_name)
+    print('follows link is ' + follows_link)
+
+    user_crawler.get( full_url(follows_link) )
+
+    feeds = []
+    users = []
+
+    t_feeds = threading.Thread(target=extract_feed, name=None, args=(feeds,))
+    # t_users = threading.Thread(target=extract_user, name=None, args=(users,))
+
+    t_feeds.setDaemon(True)
+    # t_users.setDaemon(True)
+
+    t_feeds.start()
+    # t_users.start()
+
+    t_feeds.join()
+    # t_users.join()
+
+def get_element_by_xpath(cur_driver, path):
+    tried = 0
+    while tried < 6:
+        html = cur_driver.page_source
+        tr = etree.HTML(html)
+        elements = tr.xpath(path)
+        if len(elements) == 0:
+            time.sleep(1)
+            tried += 1
+            continue
+        return elements
+
+def login(username, password):
+    print('Login')
+    feeds_crawler.get(full_url(url_home))
+    user_crawler.get(full_url(url_home))
+    time.sleep(8)
+    print('find click button to login')
+    feeds_crawler.find_element_by_id('loginName').send_keys(username)
+    feeds_crawler.find_element_by_id('loginPassword').send_keys(password)
+    # 执行 click()
+    feeds_crawler.find_element_by_id('loginAction').click()
+    # 也可以使用 execute_script 来执行一段 javascript
+    # feeds_crawler.execute_script('document.getElementsByClassName("W_btn_a btn_32px")[0].click()')
+    #
+    user_crawler.find_element_by_id('loginName').send_keys(username)
+    user_crawler.find_element_by_id('loginPassword').send_keys(password)
+    # # 执行 click()
+    user_crawler.find_element_by_id('loginAction').click()
+    # for cookie in feeds_crawler.get_cookies():
+    #     user_crawler.add_cookie(cookie)
+
+def enqueueUrl(url):
+    try:
+        md5v = hashlib.md5(url.encode('utf8')).hexdigest()
+        if md5v not in download_bf:
+            print(url + ' is added to queue')
+            cur_queue.append(url)
+            download_bf.add(md5v)
+        # else:
+            # print('Skip %s' % (url))
+    except ValueError:
+        pass
+
+def dequeuUrl():
+    return cur_queue.popleft()
+
+def crawl():
+    while True:
+        url = dequeuUrl()
+        fetch_user(url)
+
+if __name__ == '__main__':
+    try:
+        enqueueUrl(seed_user)
+        login('18600663368', 'Xi@oxiang66')
+        crawl()
+    finally:
+        feeds_crawler.close()
+        user_crawler.close()
