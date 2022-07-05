@@ -36,7 +36,7 @@ py==1.5.3
 pyasn1==0.4.2
 pyasn1-modules==0.2.1
 pybloomfilter==1.0
-pycares==2.3.0
+pycares==4.2.0
 pycparser==2.18
 PyDispatcher==2.0.5
 PyExecJS==1.5.1
